@@ -29,7 +29,7 @@ func TestLinkedCloneOK(t *testing.T) {
 }
 
 func TestValidateDiskSize(t *testing.T) {
-	assert.NoError(t, ValidateDiskSize(0, 20))  // 0 = keep template size
+	assert.NoError(t, ValidateDiskSize(0, 20)) // 0 = keep template size
 	assert.NoError(t, ValidateDiskSize(40, 20))
 	assert.NoError(t, ValidateDiskSize(20, 20)) // equal → no resize, valid
 	err := ValidateDiskSize(10, 20)             // PVE cannot shrink
