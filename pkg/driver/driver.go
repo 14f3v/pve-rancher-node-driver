@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/rancher/machine/libmachine/drivers"
-	"github.com/rancher/machine/libmachine/mcnflag"
 	"github.com/rancher/machine/libmachine/state"
 
 	"github.com/14f3v/pve-rancher-node-driver/pkg/pve"
@@ -92,14 +91,12 @@ var _ drivers.Driver = (*Driver)(nil)
 
 var errNotImplemented = errors.New("pvenode: not implemented yet")
 
-func (d *Driver) GetCreateFlags() []mcnflag.Flag                      { return nil }
-func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error { return nil }
-func (d *Driver) Create() error                                       { return errNotImplemented }
-func (d *Driver) Remove() error                                       { return errNotImplemented }
-func (d *Driver) Start() error                                        { return errNotImplemented }
-func (d *Driver) Stop() error                                         { return errNotImplemented }
-func (d *Driver) Kill() error                                         { return errNotImplemented }
-func (d *Driver) Restart() error                                      { return errNotImplemented }
-func (d *Driver) GetState() (state.State, error)                      { return state.None, errNotImplemented }
-func (d *Driver) GetURL() (string, error)                             { return "", errNotImplemented }
-func (d *Driver) GetSSHHostname() (string, error)                     { return "", errNotImplemented }
+func (d *Driver) Create() error                   { return errNotImplemented }
+func (d *Driver) Remove() error                   { return errNotImplemented }
+func (d *Driver) Start() error                    { return errNotImplemented }
+func (d *Driver) Stop() error                     { return errNotImplemented }
+func (d *Driver) Kill() error                     { return errNotImplemented }
+func (d *Driver) Restart() error                  { return errNotImplemented }
+func (d *Driver) GetState() (state.State, error)  { return state.None, errNotImplemented }
+func (d *Driver) GetURL() (string, error)         { return "", errNotImplemented }
+func (d *Driver) GetSSHHostname() (string, error) { return "", errNotImplemented }
