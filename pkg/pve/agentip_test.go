@@ -84,6 +84,20 @@ func TestPickIPv4Adversarial(t *testing.T) {
 			want: "",
 		},
 		{
+			name: "loopback IPv4 must not count",
+			ifaces: []map[string]interface{}{
+				iface("ens18", mac, addr("ipv4", "127.0.0.1")),
+			},
+			want: "",
+		},
+		{
+			name: "unspecified IPv4 must not count",
+			ifaces: []map[string]interface{}{
+				iface("ens18", mac, addr("ipv4", "0.0.0.0")),
+			},
+			want: "",
+		},
+		{
 			name: "interface renamed (eth0 vs ens18) is irrelevant — match is by MAC",
 			ifaces: []map[string]interface{}{
 				iface("eth0", mac, addr("ipv4", "192.168.1.52")),
