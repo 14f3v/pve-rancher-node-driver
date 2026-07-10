@@ -159,3 +159,42 @@ func TestCloneAvoidsUsedVMIDs(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// TestCloneCleansUpAfterFailedTask drives the safety-critical orphan-cleanup
+// path: the clone POST succeeds but the clone TASK fails, so CloneFromTemplate
+// must best-effort-delete the partial VM before surfacing the error. Without
+// this, a failed clone would silently leak a VM.
+func TestCloneCleansUpAfterFailedTask(t *testing.T) {
+	var s *pvetest.Server
+	var failUpid, okUpid string
+	var deleted atomic.Bool
+	s, c := cloneFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		id := int(body["newid"].(float64))
+		// Make the partial VM fetchable so bestEffortDelete can find it,
+		// and record its deletion.
+		registerNewVM(s, id, okUpid)
+		s.HandleFunc("DELETE", nodeQemuPath("pve1", id), func(w http.ResponseWriter, r *http.Request) {
+			deleted.Store(true)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+		})
+		// The clone task itself fails.
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": failUpid})
+	})
+	failUpid = s.FailedTask("pve1", "clone failed: no space left on device")
+	okUpid = s.OKTask("pve1")
+
+	tmpl, err := c.GetVM(context.Background(), "pve1", 9000)
+	require.NoError(t, err)
+
+	vm, err := c.CloneFromTemplate(context.Background(), tmpl, CloneSpec{
+		Name: "new-vm", VMIDLo: 10000, VMIDHi: 19999, Tags: []string{"rancher-pvenode"},
+	})
+	require.Error(t, err)
+	assert.Nil(t, vm)
+	assert.Contains(t, err.Error(), "no space left", "the clone-task failure must surface, not the cleanup outcome")
+	assert.True(t, deleted.Load(), "a failed clone task must best-effort-delete the partial VM")
+}
