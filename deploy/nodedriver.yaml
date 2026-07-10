@@ -1,0 +1,31 @@
+# Register the pvenode driver in Rancher:
+#   kubectl apply -f deploy/nodedriver.yaml   (against the Rancher local cluster)
+# or paste the url/checksum into Cluster Management > Drivers > Node Drivers > Add.
+#
+# Per release: replace <VERSION> with the tag (e.g. v0.1.0) and <SHA256>
+# with the binary's line from that release's checksums.txt. NEVER reuse a
+# URL for changed binaries — Rancher only re-downloads when url/checksum change.
+apiVersion: management.cattle.io/v3
+kind: NodeDriver
+metadata:
+  name: pvenode
+  annotations:
+    # Field names = flag minus the pvenode- prefix, camelCased.
+    publicCredentialFields: "url,tokenId"
+    privateCredentialFields: "tokenSecret"
+    optionalCredentialFields: "insecureTls,caCert"
+    passwordFields: "tokenSecret"
+spec:
+  displayName: "Proxmox VE (pvenode)"
+  description: "Provision RKE2/K3s nodes as Proxmox VE virtual machines"
+  active: true
+  addCloudCredential: true
+  builtin: false
+  url: "https://github.com/14f3v/pve-rancher-node-driver/releases/download/<VERSION>/docker-machine-driver-pvenode-linux-amd64"
+  checksum: "<SHA256>"
+  uiUrl: ""
+  externalId: ""
+  whitelistDomains:
+    - github.com
+    - objects.githubusercontent.com
+    - release-assets.githubusercontent.com
