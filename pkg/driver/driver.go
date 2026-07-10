@@ -110,7 +110,16 @@ func (d *Driver) lookupVM(ctx context.Context, c *pve.Client) (*proxmox.VirtualM
 		}
 		for _, row := range rows {
 			if int(row.VMID) == d.VMID && row.Type == "qemu" {
-				return c.GetVM(ctx, row.Node, d.VMID)
+				vm, err := c.GetVM(ctx, row.Node, d.VMID)
+				if err != nil {
+					// Deleted in the window between the list and this fetch:
+					// treat as gone so GetState/Remove stay idempotent.
+					if pve.IsNotFoundErr(err) {
+						return nil, nil
+					}
+					return nil, err
+				}
+				return vm, nil
 			}
 		}
 		return nil, nil

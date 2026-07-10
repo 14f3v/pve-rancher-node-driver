@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -158,6 +159,52 @@ func TestCloneAvoidsUsedVMIDs(t *testing.T) {
 		Name: "new-vm", VMIDLo: 100, VMIDHi: 102, Tags: []string{"rancher-pvenode"},
 	})
 	require.NoError(t, err)
+}
+
+// TestCloneCleansUpWhenPostCloneReadFails covers the narrow window where the
+// clone task succeeds but re-reading the VM (before it is tagged) fails: the
+// untagged VM must be deleted, or a later tag-based Remove could never find it.
+func TestCloneCleansUpWhenPostCloneReadFails(t *testing.T) {
+	var s *pvetest.Server
+	var okUpid string
+	var deleted atomic.Bool
+	var statusCalls atomic.Int32
+	s, c := cloneFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		id := int(body["newid"].(float64))
+		path := nodeQemuPath("pve1", id)
+		// First status read (inside CloneFromTemplate) fails; the retry
+		// inside bestEffortDelete succeeds so the DELETE can proceed.
+		s.HandleFunc("GET", path+"/status/current", func(w http.ResponseWriter, r *http.Request) {
+			if statusCalls.Add(1) == 1 {
+				pvetest.PVEError(w, 500, "communication failure")
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"status":"stopped","vmid":` + strconv.Itoa(id) + `,"name":"new-vm"}}`))
+		})
+		s.Handle("GET", path+"/config", 200, map[string]interface{}{"name": "new-vm"})
+		s.HandleFunc("DELETE", path, func(w http.ResponseWriter, r *http.Request) {
+			deleted.Store(true)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+	})
+	okUpid = s.OKTask("pve1")
+
+	tmpl, err := c.GetVM(context.Background(), "pve1", 9000)
+	require.NoError(t, err)
+
+	vm, err := c.CloneFromTemplate(context.Background(), tmpl, CloneSpec{
+		Name: "new-vm", VMIDLo: 10000, VMIDHi: 19999, Tags: []string{"rancher-pvenode"},
+	})
+	require.Error(t, err)
+	assert.Nil(t, vm)
+	assert.Contains(t, err.Error(), "not readable")
+	assert.True(t, deleted.Load(), "an untagged post-clone VM must be cleaned up when the read fails")
 }
 
 // TestCloneCleansUpAfterFailedTask drives the safety-critical orphan-cleanup

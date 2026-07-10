@@ -78,6 +78,10 @@ func (c *Client) CloneFromTemplate(ctx context.Context, tmpl *proxmox.VirtualMac
 
 	vm, err := c.GetVM(ctx, targetNode, vmid)
 	if err != nil {
+		// The VM exists (clone task succeeded) but is not yet tagged, so a
+		// later Remove could not find it by tag: delete it now to avoid an
+		// unrecoverable orphan.
+		c.bestEffortDelete(ctx, targetNode, vmid)
 		return nil, fmt.Errorf("clone succeeded but VM %d is not readable: %w", vmid, err)
 	}
 

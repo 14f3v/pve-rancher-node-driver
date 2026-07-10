@@ -104,7 +104,7 @@ With the cloud credential in hand, create an RKE2 or K3s cluster and add one or 
 | `cpu-type` | *(PVE default)* | CPU type, e.g. `host` |
 | `disk-size` | `0` | Boot disk size in GB (grow-only; `0` = keep template size) |
 | `bridge` | *(template's bridge)* | Network bridge for `net0`, e.g. `vmbr0` |
-| `vlan` | `0` | VLAN tag for `net0` (`0` = none) |
+| `vlan` | `0` | VLAN tag for `net0` (`0` = none). Requires `bridge` (the tag is written onto `net0`, which must name a bridge). |
 | `pool` | *(none)* | PVE resource pool for created VMs |
 | `ssh-user` | `rancher` | Cloud-init user for SSH provisioning |
 | `agent-timeout` | `300` | Seconds to wait for the guest agent to report an IP |

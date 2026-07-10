@@ -85,6 +85,21 @@ func TestSetConfigFromFlagsBadVLAN(t *testing.T) {
 	assert.Error(t, d.SetConfigFromFlags(opts))
 }
 
+func TestSetConfigFromFlagsVLANRequiresBridge(t *testing.T) {
+	// VLAN set without a bridge would silently drop the tag (net0 is only
+	// rewritten when a bridge is given), landing nodes on the wrong network.
+	opts := validOpts()
+	opts["pvenode-vlan"] = 100
+	d := NewDriver("m", "/tmp/s")
+	err := d.SetConfigFromFlags(opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pvenode-bridge")
+
+	// With a bridge, the same VLAN is accepted.
+	opts["pvenode-bridge"] = "vmbr0"
+	assert.NoError(t, NewDriver("m", "/tmp/s").SetConfigFromFlags(opts))
+}
+
 func TestParseVMIDRange(t *testing.T) {
 	lo, hi, err := parseVMIDRange("10000-19999")
 	require.NoError(t, err)

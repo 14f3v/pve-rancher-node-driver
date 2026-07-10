@@ -28,6 +28,16 @@ Run per release candidate against the lab PVE. All boxes must pass.
       provisioning log, and the failed VM is cleaned up from PVE.
 - [ ] Delete a machine from Rancher while it is mid-provisioning: no
       orphaned VM remains on PVE afterwards.
+- [ ] Delete a machine during the post-clone / pre-provision window
+      specifically (right after the VM appears in PVE, before it is Ready):
+      confirm no orphan remains. This is the narrowest orphan seam — the
+      driver tags the VM immediately after clone, but PVE's clone API cannot
+      set the tag atomically, so there is a sub-second window where a
+      crashed provisioning pod could leave an untagged VM. Known limitation:
+      an untagged VM stranded by a host/pod crash in exactly this window is
+      not auto-recoverable by Remove (which deletes only tagged VMs) and
+      must be removed manually. The driver's own failure paths (failed
+      clone, failed read, failed provision) all clean up within the process.
 
 ## Teardown
 - [ ] Delete the cluster. PVE shows zero remaining VMs, zero orphaned

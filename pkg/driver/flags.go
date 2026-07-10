@@ -138,6 +138,12 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	if d.VLANTag < 0 || d.VLANTag > 4094 {
 		return fmt.Errorf("--%s must be between 0 and 4094, got %d", flagVLAN, d.VLANTag)
 	}
+	// A VLAN tag can only be applied by rewriting net0, which needs the
+	// bridge name. Without --pvenode-bridge the tag would be silently
+	// dropped and nodes would land on the wrong (untagged) network.
+	if d.VLANTag > 0 && d.Bridge == "" {
+		return fmt.Errorf("--%s requires --%s (the VLAN tag is set on net0, which must name a bridge)", flagVLAN, flagBridge)
+	}
 	if d.DiskSizeGB < 0 {
 		return fmt.Errorf("--%s must be >= 0, got %d", flagDiskSize, d.DiskSizeGB)
 	}
