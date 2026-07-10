@@ -93,7 +93,6 @@ var _ drivers.Driver = (*Driver)(nil)
 var errNotImplemented = errors.New("pvenode: not implemented yet")
 
 func (d *Driver) Create() error { return errNotImplemented }
-func (d *Driver) Remove() error { return errNotImplemented }
 
 // lookupVM finds this machine's VM: persisted node+VMID first, then a
 // cluster-wide VMID search (VM may have been migrated), then — for the
