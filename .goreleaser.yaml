@@ -1,0 +1,25 @@
+version: 2
+project_name: docker-machine-driver-pvenode
+builds:
+  - main: ./cmd/docker-machine-driver-pvenode
+    binary: docker-machine-driver-pvenode
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+archives:
+  # Raw binaries, not tarballs: Rancher's NodeDriver URL must point at a
+  # directly executable file.
+  - formats: [binary]
+    name_template: "{{ .Binary }}-{{ .Os }}-{{ .Arch }}"
+checksum:
+  name_template: checksums.txt
+changelog:
+  use: github
