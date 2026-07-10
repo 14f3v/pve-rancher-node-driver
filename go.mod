@@ -5,6 +5,7 @@ go 1.26.0
 replace github.com/docker/docker => github.com/moby/moby v1.4.2-0.20170731201646-1009e6a40b29
 
 require (
+	github.com/luthermonson/go-proxmox v0.8.0
 	github.com/rancher/machine v0.15.0-rancher145
 	github.com/stretchr/testify v1.11.1
 )
@@ -17,7 +18,6 @@ require (
 	github.com/djherbis/times v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jinzhu/copier v0.3.4 // indirect
-	github.com/luthermonson/go-proxmox v0.8.0 // indirect
 	github.com/magefile/mage v1.14.0 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
