@@ -94,6 +94,25 @@ func TestFindVMByNameAndTag(t *testing.T) {
 	assert.Nil(t, vm)
 }
 
+// TestFindVMByNameAndTagRejectsUntaggedNameMatch is the safety-critical guard:
+// a VM whose name matches but whose ownership tag does NOT must never be
+// returned (name/VMID reuse across clusters could otherwise delete the wrong
+// VM). Expect (nil, nil), not the matching-name VM.
+func TestFindVMByNameAndTagRejectsUntaggedNameMatch(t *testing.T) {
+	s := pvetest.New(t)
+	s.Handle("GET", "/cluster/resources", 200, []map[string]interface{}{
+		{"vmid": 10005, "name": "c1-pool1-abcde", "node": "pve1", "type": "qemu", "template": 0, "status": "running"},
+	})
+	registerVM(s, "pve1", 10005,
+		map[string]interface{}{"status": "running", "vmid": 10005, "name": "c1-pool1-abcde", "tags": "somebody-elses-vm"},
+		map[string]interface{}{"name": "c1-pool1-abcde", "tags": "somebody-elses-vm"})
+	c := newTestClient(t, s)
+
+	vm, err := c.FindVMByNameAndTag(context.Background(), "c1-pool1-abcde", "rancher-pvenode")
+	require.NoError(t, err)
+	assert.Nil(t, vm, "must not select a name-matching VM that lacks the ownership tag")
+}
+
 func TestNodeInventories(t *testing.T) {
 	s := pvetest.New(t)
 	s.Handle("GET", "/nodes/pve1/storage", 200, []map[string]interface{}{
