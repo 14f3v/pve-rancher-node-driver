@@ -3,7 +3,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 
 	proxmox "github.com/luthermonson/go-proxmox"
 	"github.com/rancher/machine/libmachine/drivers"
@@ -84,15 +83,10 @@ func (d *Driver) client() (*pve.Client, error) {
 }
 
 // Compile-time interface assertion: main.go hands *Driver to
-// plugin.RegisterDriver(drivers.Driver), so the full interface must exist
-// from day one. The stubs below are DELETED one by one as later tasks
-// implement the real methods (a leftover stub = duplicate-method compile
-// error, so forgetting is impossible).
+// plugin.RegisterDriver(drivers.Driver), so the full interface must exist.
+// Every drivers.Driver method (Create, Remove, GetIP, Start, Stop, ...) is
+// now implemented for real — no stubs remain.
 var _ drivers.Driver = (*Driver)(nil)
-
-var errNotImplemented = errors.New("pvenode: not implemented yet")
-
-func (d *Driver) Create() error { return errNotImplemented }
 
 // lookupVM finds this machine's VM: persisted node+VMID first, then a
 // cluster-wide VMID search (VM may have been migrated), then — for the
