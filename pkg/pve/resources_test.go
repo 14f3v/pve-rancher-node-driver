@@ -10,17 +10,6 @@ import (
 	"github.com/14f3v/pve-rancher-node-driver/internal/pvetest"
 )
 
-// newTestClient is also defined by Task 4's task_test.go; this worktree was
-// branched before that task landed, so it's provided here to keep this
-// package compiling in isolation. Whichever branch merges second will need
-// to delete the duplicate.
-func newTestClient(t *testing.T, s *pvetest.Server) *Client {
-	t.Helper()
-	c, err := New(Config{URL: s.URL(), TokenID: "u@pve!t", TokenSecret: "x"})
-	require.NoError(t, err)
-	return c
-}
-
 // registerVM registers the two routes node.VirtualMachine() fetches.
 func registerVM(s *pvetest.Server, node string, vmid int, status map[string]interface{}, config map[string]interface{}) {
 	s.Handle("GET", "/nodes/"+node+"/status", 200, map[string]interface{}{})
@@ -37,7 +26,7 @@ func templateFixture(s *pvetest.Server) {
 		map[string]interface{}{"status": "stopped", "vmid": 9000, "name": "ubuntu-2404-tmpl", "template": 1},
 		map[string]interface{}{
 			"name": "ubuntu-2404-tmpl", "template": 1, "agent": "1",
-			"boot": "order=scsi0;ide2;net0",
+			"boot":  "order=scsi0;ide2;net0",
 			"scsi0": "local-lvm:base-9000-disk-0,size=20G",
 			"ide2":  "local-lvm:vm-9000-cloudinit,media=cdrom",
 			"net0":  "virtio=DE:AD:BE:EF:12:34,bridge=vmbr0",

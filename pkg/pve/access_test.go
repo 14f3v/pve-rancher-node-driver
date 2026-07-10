@@ -10,14 +10,6 @@ import (
 	"github.com/14f3v/pve-rancher-node-driver/internal/pvetest"
 )
 
-// newTestClient builds a Client wired to the given pvetest fake server.
-func newTestClient(t *testing.T, s *pvetest.Server) *Client {
-	t.Helper()
-	c, err := New(Config{URL: s.URL(), TokenID: "u@pve!t", TokenSecret: "x"})
-	require.NoError(t, err)
-	return c
-}
-
 func TestPVEMajorVersion(t *testing.T) {
 	s := pvetest.New(t)
 	s.Handle("GET", "/version", 200, map[string]string{"release": "9.2", "version": "9.2.1"})
