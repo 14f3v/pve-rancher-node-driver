@@ -2,10 +2,11 @@
 package driver
 
 import (
+	"context"
 	"errors"
 
+	proxmox "github.com/luthermonson/go-proxmox"
 	"github.com/rancher/machine/libmachine/drivers"
-	"github.com/rancher/machine/libmachine/state"
 
 	"github.com/14f3v/pve-rancher-node-driver/pkg/pve"
 )
@@ -91,12 +92,35 @@ var _ drivers.Driver = (*Driver)(nil)
 
 var errNotImplemented = errors.New("pvenode: not implemented yet")
 
-func (d *Driver) Create() error                   { return errNotImplemented }
-func (d *Driver) Remove() error                   { return errNotImplemented }
-func (d *Driver) Start() error                    { return errNotImplemented }
-func (d *Driver) Stop() error                     { return errNotImplemented }
-func (d *Driver) Kill() error                     { return errNotImplemented }
-func (d *Driver) Restart() error                  { return errNotImplemented }
-func (d *Driver) GetState() (state.State, error)  { return state.None, errNotImplemented }
-func (d *Driver) GetURL() (string, error)         { return "", errNotImplemented }
-func (d *Driver) GetSSHHostname() (string, error) { return "", errNotImplemented }
+func (d *Driver) Create() error { return errNotImplemented }
+func (d *Driver) Remove() error { return errNotImplemented }
+
+// lookupVM finds this machine's VM: persisted node+VMID first, then a
+// cluster-wide VMID search (VM may have been migrated), then — for the
+// mid-create-crash case where the VMID never got persisted — by machine
+// name guarded by the ownership tag. Returns (nil, nil) when the VM is
+// gone: callers treat that as "already removed".
+func (d *Driver) lookupVM(ctx context.Context, c *pve.Client) (*proxmox.VirtualMachine, error) {
+	if d.VMID != 0 {
+		if d.PVENode != "" {
+			vm, err := c.GetVM(ctx, d.PVENode, d.VMID)
+			if err == nil {
+				return vm, nil
+			}
+			if !pve.IsNotFoundErr(err) {
+				return nil, err
+			}
+		}
+		rows, err := c.ListVMs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if int(row.VMID) == d.VMID && row.Type == "qemu" {
+				return c.GetVM(ctx, row.Node, d.VMID)
+			}
+		}
+		return nil, nil
+	}
+	return c.FindVMByNameAndTag(ctx, d.MachineName, MachineTag)
+}
