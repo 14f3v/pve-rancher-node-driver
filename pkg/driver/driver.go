@@ -1,0 +1,105 @@
+// Package driver implements the pvenode rancher-machine driver for Proxmox VE.
+package driver
+
+import (
+	"errors"
+
+	"github.com/rancher/machine/libmachine/drivers"
+	"github.com/rancher/machine/libmachine/mcnflag"
+	"github.com/rancher/machine/libmachine/state"
+
+	"github.com/14f3v/pve-rancher-node-driver/pkg/pve"
+)
+
+const (
+	// MachineTag marks every VM this driver creates. Remove refuses to
+	// delete a VM without it (guards against VMID/name reuse).
+	MachineTag = "rancher-pvenode"
+
+	driverName = "pvenode"
+)
+
+type Driver struct {
+	*drivers.BaseDriver
+
+	// Cloud credential (Rancher fields: url, tokenId, tokenSecret, insecureTls, caCert)
+	URL         string
+	TokenID     string
+	TokenSecret string
+	InsecureTLS bool
+	CACert      string // PEM content, optional
+
+	// Machine config
+	TemplateRef   string // template VM name or numeric VMID
+	Storage       string // full clones only
+	NodeName      string // target PVE node; empty = template's node
+	LinkedClone   bool   // default false = full clone
+	Cores         int
+	MemoryMB      int
+	CPUType       string
+	DiskSizeGB    int // 0 = keep template size
+	Bridge        string
+	VLANTag       int
+	ResourcePool  string
+	AgentTimeout  int // seconds to wait for the guest agent to report an IP
+	VMIDRange     string
+	CIPassword    string
+	Nameserver    string
+	Searchdomain  string
+	OnBoot        bool
+	ExtraTags     string // comma-separated
+	KeepOnFailure bool
+
+	// Lifecycle state — exported so it survives the JSON round-trip
+	// between driver processes (each call is a fresh process).
+	VMID    int
+	PVENode string
+}
+
+func NewDriver(machineName, storePath string) *Driver {
+	return &Driver{
+		BaseDriver: &drivers.BaseDriver{
+			MachineName: machineName,
+			StorePath:   storePath,
+		},
+	}
+}
+
+// DriverName is the plugin name; the binary must be named
+// docker-machine-driver-pvenode to match.
+func (d *Driver) DriverName() string {
+	return driverName
+}
+
+// client builds a PVE API client from the stored credential fields.
+// Never cached in a struct field: each lifecycle call runs in a fresh process.
+func (d *Driver) client() (*pve.Client, error) {
+	return pve.New(pve.Config{
+		URL:         d.URL,
+		TokenID:     d.TokenID,
+		TokenSecret: d.TokenSecret,
+		InsecureTLS: d.InsecureTLS,
+		CACertPEM:   d.CACert,
+	})
+}
+
+// Compile-time interface assertion: main.go hands *Driver to
+// plugin.RegisterDriver(drivers.Driver), so the full interface must exist
+// from day one. The stubs below are DELETED one by one as later tasks
+// implement the real methods (a leftover stub = duplicate-method compile
+// error, so forgetting is impossible).
+var _ drivers.Driver = (*Driver)(nil)
+
+var errNotImplemented = errors.New("pvenode: not implemented yet")
+
+func (d *Driver) GetCreateFlags() []mcnflag.Flag                      { return nil }
+func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error { return nil }
+func (d *Driver) Create() error                                       { return errNotImplemented }
+func (d *Driver) Remove() error                                       { return errNotImplemented }
+func (d *Driver) Start() error                                        { return errNotImplemented }
+func (d *Driver) Stop() error                                         { return errNotImplemented }
+func (d *Driver) Kill() error                                         { return errNotImplemented }
+func (d *Driver) Restart() error                                      { return errNotImplemented }
+func (d *Driver) GetState() (state.State, error)                      { return state.None, errNotImplemented }
+func (d *Driver) GetURL() (string, error)                             { return "", errNotImplemented }
+func (d *Driver) GetSSHHostname() (string, error)                     { return "", errNotImplemented }
