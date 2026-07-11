@@ -23,7 +23,14 @@ type CloneSpec struct {
 }
 
 const (
-	cloneAttempts    = 5
+	// cloneAttempts is deliberately larger than the other ops' 5: when a
+	// Rancher pool scales up, several VMs clone off the SAME template/storage
+	// at once and PVE serializes them on a storage lock, so a clone can wait
+	// behind a few other ~60-90s clones before the lock frees. With Retry's
+	// 2s base and 30s cap, 10 attempts back off 2,4,8,16,30,30,30,30,30s ≈ 3min
+	// total (jittered), enough to ride out that contention without giving up.
+	cloneAttempts    = 10
+	cloneBackoffBase = 2 * time.Second
 	cloneTaskTimeout = 15 * time.Minute // full clones of big templates are slow
 	tagTaskTimeout   = 2 * time.Minute
 )
@@ -40,7 +47,7 @@ func (c *Client) CloneFromTemplate(ctx context.Context, tmpl *proxmox.VirtualMac
 	}
 
 	var vmid int
-	err := Retry(ctx, cloneAttempts, 2*time.Second,
+	err := Retry(ctx, cloneAttempts, cloneBackoffBase,
 		func(err error) bool { return IsVMIDConflict(err) || IsLockErr(err) || IsTransient(err) },
 		func() error {
 			id, err := c.randomFreeVMID(ctx, spec.VMIDLo, spec.VMIDHi)

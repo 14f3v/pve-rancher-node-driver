@@ -245,3 +245,92 @@ func TestCloneCleansUpAfterFailedTask(t *testing.T) {
 	assert.Contains(t, err.Error(), "no space left", "the clone-task failure must surface, not the cleanup outcome")
 	assert.True(t, deleted.Load(), "a failed clone task must best-effort-delete the partial VM")
 }
+
+// TestCloneRetriesOnTaskLockTimeout is the real-world concurrency case: the
+// clone POST is accepted but the clone TASK ends in a PVE lock-timeout error
+// (what surfaces under concurrent clones off the same template/storage). This
+// is transient — the driver must best-effort-delete the partial VM, retry, and
+// ultimately succeed once the lock frees. Unlike TestCloneRetriesOnTemplateLock,
+// the error arrives via the task exit status, not the clone POST.
+func TestCloneRetriesOnTaskLockTimeout(t *testing.T) {
+	for _, exitStatus := range []string{
+		"clone failed: can't lock file '/var/lock/pve-manager/pve-storage-local-lvm' - got timeout",
+		"clone failed: Maximum number of retries (60) exceeded",
+	} {
+		t.Run(exitStatus, func(t *testing.T) {
+			var s *pvetest.Server
+			var failUpid, okUpid string
+			var calls, deletes atomic.Int32
+			s, c := cloneFixture(t, func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]interface{}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				id := int(body["newid"].(float64))
+				n := calls.Add(1)
+				// First two task runs fail on a lock timeout; make the partial
+				// VM fetchable+deletable so bestEffortDelete can clean it up.
+				if n <= 2 {
+					registerNewVM(s, id, okUpid)
+					s.HandleFunc("DELETE", nodeQemuPath("pve1", id), func(w http.ResponseWriter, r *http.Request) {
+						deletes.Add(1)
+						w.Header().Set("Content-Type", "application/json")
+						_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+					})
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": failUpid})
+					return
+				}
+				registerNewVM(s, id, okUpid)
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+			})
+			failUpid = s.FailedTask("pve1", exitStatus)
+			okUpid = s.OKTask("pve1")
+
+			tmpl, err := c.GetVM(context.Background(), "pve1", 9000)
+			require.NoError(t, err)
+
+			vm, err := c.CloneFromTemplate(context.Background(), tmpl, CloneSpec{
+				Name: "new-vm", VMIDLo: 10000, VMIDHi: 19999, Tags: []string{"rancher-pvenode"},
+			})
+			require.NoError(t, err)
+			require.NotNil(t, vm)
+			assert.Equal(t, int32(3), calls.Load(), "must retry the two lock-timeout task failures")
+			assert.Equal(t, int32(2), deletes.Load(), "each failed clone task must clean up its partial VM")
+		})
+	}
+}
+
+// TestCloneFailsFastOnNonRetryableTask guards the classifier: a genuinely
+// permanent clone-task failure (out of disk) must surface immediately without
+// burning the whole retry budget.
+func TestCloneFailsFastOnNonRetryableTask(t *testing.T) {
+	var s *pvetest.Server
+	var failUpid, okUpid string
+	var calls atomic.Int32
+	s, c := cloneFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		id := int(body["newid"].(float64))
+		calls.Add(1)
+		registerNewVM(s, id, okUpid)
+		s.HandleFunc("DELETE", nodeQemuPath("pve1", id), func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": okUpid})
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": failUpid})
+	})
+	failUpid = s.FailedTask("pve1", "clone failed: no space left on device")
+	okUpid = s.OKTask("pve1")
+
+	tmpl, err := c.GetVM(context.Background(), "pve1", 9000)
+	require.NoError(t, err)
+
+	vm, err := c.CloneFromTemplate(context.Background(), tmpl, CloneSpec{
+		Name: "new-vm", VMIDLo: 10000, VMIDHi: 19999, Tags: []string{"rancher-pvenode"},
+	})
+	require.Error(t, err)
+	assert.Nil(t, vm)
+	assert.Contains(t, err.Error(), "no space left")
+	assert.Equal(t, int32(1), calls.Load(), "a non-retryable task error must fail fast, not retry")
+}
