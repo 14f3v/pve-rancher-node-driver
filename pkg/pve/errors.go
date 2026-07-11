@@ -26,6 +26,10 @@ func IsLockErr(err error) bool {
 		"got lock request timeout",
 		"cfs-lock",
 		"can't acquire lock",
+		// PVE's storage layer exhausts its OWN internal lock retries under
+		// concurrent clones off the same template/storage and reports this —
+		// same transient lock contention, so retry it too.
+		"Maximum number of retries",
 	} {
 		if strings.Contains(msg, s) {
 			return true
