@@ -127,7 +127,7 @@ func TestWaitForIPHappyAfterAgentDelay(t *testing.T) {
 	// actually routable in the test environment.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	restore := setProbeDialerForTest(func(network, address string, d time.Duration) (net.Conn, error) {
 		assert.Equal(t, "192.0.2.10:22", address, "probe must target the reported IP and SSH port")
 		return net.DialTimeout("tcp", ln.Addr().String(), d)

@@ -76,7 +76,7 @@ func createFixture(t *testing.T, storeDir string, deleted *atomic.Bool) (*pvetes
 func TestCreateHappyPath(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	restore := pve.SetProbeDialer(func(network, address string, timeout time.Duration) (net.Conn, error) {
 		return net.DialTimeout("tcp", ln.Addr().String(), timeout)
 	})

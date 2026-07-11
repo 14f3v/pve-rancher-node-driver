@@ -97,7 +97,7 @@ func PVEError(w http.ResponseWriter, code int, reason string) {
 		http.Error(w, reason, code)
 		return
 	}
-	defer conn.Close()
-	fmt.Fprintf(buf, "HTTP/1.1 %d %s\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", code, reason)
+	defer func() { _ = conn.Close() }()
+	_, _ = fmt.Fprintf(buf, "HTTP/1.1 %d %s\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", code, reason)
 	_ = buf.Flush()
 }
